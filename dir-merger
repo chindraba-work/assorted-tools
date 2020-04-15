@@ -1,0 +1,88 @@
+#! /usr/bin/env bash
+
+# SPDX-License-Identifier: MIT
+
+########################################################################
+#                                                                      #
+#  This file is part of collection of scripts and tools created for my #
+#  personal needs. Usefulness to others might exist.                   #
+#                                                                      #
+#  Copyright © 2020  Chindraba (Ronald Lamoreaux)                      #
+#                    <tools@chindraba.work>                            #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  Permission is hereby granted, free of charge, to any person         #
+#  obtaining a copy of this software and associated documentation      #
+#  files (the "Software"), to deal in the Software without             #
+#  restriction, including without limitation the rights to use, copy,  #
+#  modify, merge, publish, distribute, sublicense, and/or sell copies  #
+#  of the Software, and to permit persons to whom the Software is      #
+#  furnished to do so, subject to the following conditions:            #
+#                                                                      #
+#  The above copyright notice and this permission notice shall be      #
+#  included in all copies or substantial portions of the Software.     #
+#                                                                      #
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,     #
+#  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF  #
+#  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND               #
+#  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS #
+#  BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN  #
+#  ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN   #
+#  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE    #
+#  SOFTWARE.                                                           #
+#                                                                      #
+########################################################################
+
+usage() {
+    printf "%s\n\n" "$1" "    Usage: dir-merger <Source> <Destination>"
+    exit 1
+}
+
+process_file() {
+    printf "move file %s to %s\n" "$src_root/$work_path$target" "$dest_root/$work_path$target"
+}
+
+process_dir() {
+    for target in *; do
+        if [ ! -L "$target" ]; then
+            [ -f "$target" ] && process_file
+            [ -d "$target" ] && dir_list+=("$work_path$target")
+        fi
+    done
+}
+
+[ -z "$1" ] && usage "    No Source Directory given."
+[ -d "$1" ] || usage "    Source Directory not found."
+src_root="$(realpath "$1")"
+[ -z "$2" ] && usage "    No Destination Directory given."
+[ -d "$2" ] || usage "    Destination Directory not found."
+dest_root="$(realpath "$2")"
+
+printf "Merging contents of %s into %s\n" "$src_root" "$dest_root"
+
+#GLOBIGNORE=".|.."
+file_list=()
+dir_list=()
+pushd "$src_root" >/dev/null
+work_path=""
+cd "${src_root}/"
+process_dir
+printf "List: %s\n" ${dir_list[@]}
+while [ 0 -ne ${#dir_list[@]} ] ; do
+#   printf "DIR: %s\n" "${dir_list[0]}"
+    work_path="${dir_list[0]}/"
+    dir_list=("${dir_list[@]: 1}")
+    cd "${src_root}/${work_path}"
+    mkdir -p "${dest_root}/${work_path}"
+    process_dir
+done
+
+
+popd >/dev/null
+
+# printf "%s\n" "==FILES==" ${file_list[@]} "===DIRECTORIES===" ${dir_list[@]}
+while [ 0 -ne ${#dir_list[@]} ] ; do
+    printf "DIR: %s\n" "${dir_list[0]}"
+    dir_list=("${dir_list[@]: 1}")
+done
+
