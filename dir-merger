@@ -33,13 +33,43 @@
 #                                                                      #
 ########################################################################
 
+# options for the rsync command
+rsync_options=(
+    --times
+    --human-readable
+    --recursive
+    --owner
+    --group
+    --perms
+    --partial
+    --hard-links
+    --acls
+    --xattrs
+    --executability
+    --copy-links
+    --numeric-ids
+)
+
 usage() {
     printf "%s\n\n" "$1" "    Usage: dir-merger <Source> <Destination>"
     exit 1
 }
 
 process_file() {
-    printf "move file %s to %s\n" "$src_root/$work_path$target" "$dest_root/$work_path$target"
+    if [ -e "$dest_root/$work_path$target" ]; then
+        printf "move file %s to %s\n" "$src_root/$work_path$target" "$dest_root/$work_path$target"
+    else
+        rsync ${rsync_options[@]} "$src_root/$work_path$target" "$dest_root/$work_path$target" 2>/dev/null
+        src_hash="$(sha512sum "$src_root/$work_path$target" | awk -e '{printf $1}' )"
+        dest_hash="$(sha512sum "$dest_root/$work_path$target" | awk -e '{printf $1}' )"
+        if [ "$src_hash" == "$dest_hash" ]; then
+            rm -f "$src_root/$work_path$target"
+            printf "Moved file %s\n" "$src_root/$work_path$target"
+        else
+            printf "ERROR: move of file %s to %s failed.\n" "$src_root/$work_path$target" "$dest_root/$work_path$target"
+            exit 1
+        fi
+    fi
 }
 
 process_dir() {
@@ -67,9 +97,7 @@ pushd "$src_root" >/dev/null
 work_path=""
 cd "${src_root}/"
 process_dir
-printf "List: %s\n" ${dir_list[@]}
 while [ 0 -ne ${#dir_list[@]} ] ; do
-#   printf "DIR: %s\n" "${dir_list[0]}"
     work_path="${dir_list[0]}/"
     dir_list=("${dir_list[@]: 1}")
     cd "${src_root}/${work_path}"
