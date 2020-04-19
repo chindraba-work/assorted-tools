@@ -42,11 +42,9 @@ rsync_options=(
     --group
     --perms
     --partial
-    --hard-links
     --acls
     --xattrs
     --executability
-    --copy-links
     --numeric-ids
 )
 
@@ -56,17 +54,47 @@ usage() {
 }
 
 process_file() {
-    if [ -e "$dest_root/$work_path$target" ]; then
-        printf "move file %s to %s\n" "$src_root/$work_path$target" "$dest_root/$work_path$target"
-    else
-        rsync ${rsync_options[@]} "$src_root/$work_path$target" "$dest_root/$work_path$target" 2>/dev/null
-        src_hash="$(sha512sum "$src_root/$work_path$target" | awk -e '{printf $1}' )"
-        dest_hash="$(sha512sum "$dest_root/$work_path$target" | awk -e '{printf $1}' )"
+    merge_source="$src_root/$work_path$target"
+    src_hash="$( sha512sum "$merge_source" | awk -e '{printf $1}' )"
+    to_where="$dest_root/$work_path$target"
+    merge_target="$to_where"
+    if [ -e "$merge_target" ]; then
+        dest_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
         if [ "$src_hash" == "$dest_hash" ]; then
-            rm -f "$src_root/$work_path$target"
-            printf "Moved file %s\n" "$src_root/$work_path$target"
+            rm -f "$merge_source"
         else
-            printf "ERROR: move of file %s to %s failed.\n" "$src_root/$work_path$target" "$dest_root/$work_path$target"
+            merge_count=1
+            merge_target="$( printf "%s.merge.%03d" "$to_where" "$merge_count" )"
+            while  [ -e "$merge_source" ] && [ -e "$merge_target" ]; do
+                dest_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
+                if [ "$src_hash" == "$dest_hash" ]; then
+                    rm -f "$merge_source"
+                else
+                    ((merge_count++))
+                    merge_target="$( printf "%s.merge.%03d" "$to_where" "$merge_count" )"
+                fi
+            done
+            if [ -e "$merge_source" ]; then
+                rsync ${rsync_options[@]} "$merge_source" "$merge_target" 2>/dev/null
+                dest_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
+                if [ "$src_hash" == "$dest_hash" ]; then
+                    rm -f "$merge_source"
+                    printf "%s -> %s\n" "$merge_source" "$merge_target"
+                else
+                    printf "ERROR: move validation of file move from %s to %s failed." "$merge_source" "$merge_target"
+                    exit 1
+                fi
+            fi
+        fi
+    else
+        rsync ${rsync_options[@]} "$merge_source" "$merge_target" 2>/dev/null
+        src_hash="$( sha512sum "$merge_source" | awk -e '{printf $1}' )"
+        dest_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
+        if [ "$src_hash" == "$dest_hash" ]; then
+            rm -f "$merge_source"
+            printf "%s -> %s\n" "$merge_source" "$merge_target"
+        else
+            printf "ERROR: move validation of file move from %s to %s failed." "$merge_source" "$merge_target"
             exit 1
         fi
     fi
@@ -90,7 +118,7 @@ dest_root="$(realpath "$2")"
 
 printf "Merging contents of %s into %s\n" "$src_root" "$dest_root"
 
-#GLOBIGNORE=".|.."
+GLOBIGNORE=".|.."
 file_list=()
 dir_list=()
 pushd "$src_root" >/dev/null
