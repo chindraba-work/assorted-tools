@@ -1,0 +1,149 @@
+#! /usr/bin/env bash
+
+# SPDX-License-Identifier: MIT
+
+########################################################################
+#                                                                      #
+#  This file is part of collection of scripts and tools created for my #
+#  personal needs. Usefulness to others might exist.                   #
+#                                                                      #
+#  Copyright © 2020  Chindraba (Ronald Lamoreaux)                      #
+#                    <tools@chindraba.work>                            #
+#  - All Rights Reserved                                               #
+#                                                                      #
+#  Permission is hereby granted, free of charge, to any person         #
+#  obtaining a copy of this software and associated documentation      #
+#  files (the "Software"), to deal in the Software without             #
+#  restriction, including without limitation the rights to use, copy,  #
+#  modify, merge, publish, distribute, sublicense, and/or sell copies  #
+#  of the Software, and to permit persons to whom the Software is      #
+#  furnished to do so, subject to the following conditions:            #
+#                                                                      #
+#  The above copyright notice and this permission notice shall be      #
+#  included in all copies or substantial portions of the Software.     #
+#                                                                      #
+#  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,     #
+#  EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF  #
+#  MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND               #
+#  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS #
+#  BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN  #
+#  ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN   #
+#  CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE    #
+#  SOFTWARE.                                                           #
+#                                                                      #
+########################################################################
+
+########################################################################
+#                                                                      #
+#  Merge the contents of two directories into one. Same-named files    #
+#  are compared by hash with duplicates removed and non-duplicates     #
+#  suffixed with '.merge-xxx' where xxx is a zero-padded integer       #
+#  beginning with 1. Finding duplicates with different names is left   #
+#  as a different project.                                             #
+#                                                                      #
+########################################################################
+
+[ -z "$1" ] && usage "    No Source Directory given."
+[ -d "$1" ] || usage "    Source Directory not found."
+[ -z "$2" ] && usage "    No Destination Directory given."
+[ -d "$2" ] || usage "    Destination Directory not found."
+source_base="$(realpath "$1")"
+destination_base="$(realpath "$2")"
+GLOBIGNORE=".|.."
+directory_list=( "" )
+pushd "$src_root" >/dev/null
+
+printf "Merging contents of %s into %s\n" "$src_root" "$dest_root"
+
+# options for the rsync command
+rsync_options=(
+    --times
+    --human-readable
+    --recursive
+    --owner
+    --group
+    --perms
+    --partial
+    --acls
+    --xattrs
+    --executability
+    --numeric-ids
+)
+
+usage() {
+    printf "%s\n\n" "$1" "    Usage: dir-merger <Source> <Destination>"
+    exit 1
+}
+
+move_file() {
+    origin_path="$1"
+    target_path="$2"
+    origin_hash="$3"
+    rsync ${rsync_options[@]} "$origin_path" "$target_path" 2>/dev/null
+    target_hash="$( sha512sum "$target_path" | awk -e '{printf $1}' )"
+    if [ "$target_hash" == "$origin_hash" ]; then
+        rm -f "$origin_path"
+        printf "%s -> %s\n" "$origin_path" "$target_path"
+    else
+        printf "ERROR: move validation of file move from %s to %s failed." "$origin_path" "$target_path"
+        exit 1
+    fi
+
+
+}
+
+process_file() {
+    source_dir="$1"
+    destination_dir="$2"
+    active_dir="$3"
+    target_file="$4"
+    merge_source="${source_dir}${active_dir}/${target_file}"
+    source_hash="$( sha512sum "$merge_source" | awk -e '{printf $1}' )"
+    destination_file="${destination_dir}${active_dir}/${target_file}"
+    merge_target="$destination_file"
+    if [ -e "$merge_target" ]; then
+        merge_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
+        if [ "$source_hash" == "$merge_hash" ]; then
+            rm -f "$merge_source"
+        else
+            merge_count=1
+            merge_target="$( printf "%s.merge-%03d" "$destination_file" "$merge_count" )"
+            while  [ -e "$merge_source" ] && [ -e "$merge_target" ]; do
+                merge_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
+                if [ "$source_hash" == "$merge_hash" ]; then
+                    rm -f "$merge_source"
+                else
+                    ((merge_count++))
+                    merge_target="$( printf "%s.merge.%03d" "$destination_file" "$merge_count" )"
+                fi
+            done
+            [ -e "$merge_source" ] && move_file "$merge_source" "$merge_target" "$source_hash"
+        fi
+    else
+        move_file "$merge_source" "$merge_target" "$source_hash"
+    fi
+}
+
+
+process_dir() {
+    origin_dir="$1"
+    target_dir="$2"
+    common_dir="$3"
+    cd "${origin_dir}${common_dir}"
+    mkdir -p "${target_dir}${common_dir}"
+    for entry in *; do
+        if [ ! -L "$entry" ]; then
+            [ -f "$entry" ] && process_file "$origin_dir" "$target_dir" "$common_dir" "$entry"
+            [ -d "$entry" ] && directory_list+=("${common_dir}/${entry}")
+        fi
+    done
+}
+
+while [ 0 -ne ${#directory_list[@]} ] ; do
+    current_path="${directory_list[0]}"
+    directory_list=("${directory_list[@]: 1}")
+    process_dir "$source_base" "$destination_base" "$current_path"
+done
+
+popd >/dev/null
+
