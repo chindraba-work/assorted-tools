@@ -114,7 +114,7 @@ process_file() {
                     rm -f "$merge_source"
                 else
                     ((merge_count++))
-                    merge_target="$( printf "%s.merge.%03d" "$destination_file" "$merge_count" )"
+                    merge_target="$( printf "%s.merge-%03d" "$destination_file" "$merge_count" )"
                 fi
             done
             [ -e "$merge_source" ] && move_file "$merge_source" "$merge_target" "$source_hash"
