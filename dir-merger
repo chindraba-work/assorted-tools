@@ -97,9 +97,10 @@ process_file() {
     destination_dir="$2"
     active_dir="$3"
     target_file="$4"
+    target_base="${target_file%%.merge-???}"
     merge_source="${source_dir}${active_dir}/${target_file}"
     source_hash="$( sha512sum "$merge_source" | awk -e '{printf $1}' )"
-    destination_file="${destination_dir}${active_dir}/${target_file}"
+    destination_file="${destination_dir}${active_dir}/${target_base}"
     merge_target="$destination_file"
     if [ -e "$merge_target" ]; then
         merge_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
