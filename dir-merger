@@ -51,9 +51,9 @@ source_base="$(realpath "$1")"
 destination_base="$(realpath "$2")"
 GLOBIGNORE=".|.."
 directory_list=( "" )
-pushd "$src_root" >/dev/null
+pushd "$source_base" >/dev/null
 
-printf "Merging contents of %s into %s\n" "$src_root" "$dest_root"
+printf "Merging contents of %s into %s\n" "$source_base" "$destination_base"
 
 # options for the rsync command
 rsync_options=(
