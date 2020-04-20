@@ -37,7 +37,7 @@
 #                                                                      #
 #  Merge the contents of two directories into one. Same-named files    #
 #  are compared by hash with duplicates removed and non-duplicates     #
-#  suffixed with '-merge-xxx' where xxx is a zero-padded integer       #
+#  suffixed with '.merge-xxx' where xxx is a zero-padded integer       #
 #  beginning with 1. Finding duplicates with different names is left   #
 #  as a different project.                                             #
 #                                                                      #
@@ -107,7 +107,7 @@ process_file() {
             rm -f "$merge_source"
         else
             merge_count=1
-            merge_target="$( printf "%s.merge.%03d" "$destination_file" "$merge_count" )"
+            merge_target="$( printf "%s.merge-%03d" "$destination_file" "$merge_count" )"
             while  [ -e "$merge_source" ] && [ -e "$merge_target" ]; do
                 merge_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
                 if [ "$source_hash" == "$merge_hash" ]; then

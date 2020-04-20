@@ -15,6 +15,14 @@ A collection of tools, mostly [Bash][bash] scripts, for dealing with
 thing as I encounter them. Each may have its own requirements and
 instructions, for which see the source of each.
 
+-   `dir-merger` Script to merge two directories, resolving conflicts
+    with a simple suffix
+-   `push_it` Simple tool to initiate a `git commit` and `git push`
+    to gitlab and github
+-   `save_it` Simple tool to do a `git commit` forcing a GPG
+    signature and using UTC
+
+
 Requirements
 ======================================================================
 
