@@ -33,6 +33,28 @@
 #                                                                      #
 ########################################################################
 
+########################################################################
+#                                                                      #
+#  Merge the contents of two directories into one. Same-named files    #
+#  are compared by hash with duplicates removed and non-duplicates     #
+#  suffixed with '-merge-xxx' where xxx is a zero-padded integer       #
+#  beginning with 1. Finding duplicates with different names is left   #
+#  as a different project.                                             #
+#                                                                      #
+########################################################################
+
+[ -z "$1" ] && usage "    No Source Directory given."
+[ -d "$1" ] || usage "    Source Directory not found."
+[ -z "$2" ] && usage "    No Destination Directory given."
+[ -d "$2" ] || usage "    Destination Directory not found."
+source_base="$(realpath "$1")"
+destination_base="$(realpath "$2")"
+GLOBIGNORE=".|.."
+directory_list=( "" )
+pushd "$src_root" >/dev/null
+
+printf "Merging contents of %s into %s\n" "$src_root" "$dest_root"
+
 # options for the rsync command
 rsync_options=(
     --times
@@ -53,92 +75,75 @@ usage() {
     exit 1
 }
 
+move_file() {
+    origin_path="$1"
+    target_path="$2"
+    origin_hash="$3"
+    rsync ${rsync_options[@]} "$origin_path" "$target_path" 2>/dev/null
+    target_hash="$( sha512sum "$target_path" | awk -e '{printf $1}' )"
+    if [ "$target_hash" == "$origin_hash" ]; then
+        rm -f "$origin_path"
+        printf "%s -> %s\n" "$origin_path" "$target_path"
+    else
+        printf "ERROR: move validation of file move from %s to %s failed." "$origin_path" "$target_path"
+        exit 1
+    fi
+
+
+}
+
 process_file() {
-    merge_source="$src_root/$work_path$target"
-    src_hash="$( sha512sum "$merge_source" | awk -e '{printf $1}' )"
-    to_where="$dest_root/$work_path$target"
-    merge_target="$to_where"
+    source_dir="$1"
+    destination_dir="$2"
+    active_dir="$3"
+    target_file="$4"
+    merge_source="${source_dir}${active_dir}/${target_file}"
+    source_hash="$( sha512sum "$merge_source" | awk -e '{printf $1}' )"
+    destination_file="${destination_dir}${active_dir}/${target_file}"
+    merge_target="$destination_file"
     if [ -e "$merge_target" ]; then
-        dest_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
-        if [ "$src_hash" == "$dest_hash" ]; then
+        merge_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
+        if [ "$source_hash" == "$merge_hash" ]; then
             rm -f "$merge_source"
         else
             merge_count=1
-            merge_target="$( printf "%s.merge.%03d" "$to_where" "$merge_count" )"
+            merge_target="$( printf "%s.merge.%03d" "$destination_file" "$merge_count" )"
             while  [ -e "$merge_source" ] && [ -e "$merge_target" ]; do
-                dest_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
-                if [ "$src_hash" == "$dest_hash" ]; then
+                merge_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
+                if [ "$source_hash" == "$merge_hash" ]; then
                     rm -f "$merge_source"
                 else
                     ((merge_count++))
-                    merge_target="$( printf "%s.merge.%03d" "$to_where" "$merge_count" )"
+                    merge_target="$( printf "%s.merge.%03d" "$destination_file" "$merge_count" )"
                 fi
             done
-            if [ -e "$merge_source" ]; then
-                rsync ${rsync_options[@]} "$merge_source" "$merge_target" 2>/dev/null
-                dest_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
-                if [ "$src_hash" == "$dest_hash" ]; then
-                    rm -f "$merge_source"
-                    printf "%s -> %s\n" "$merge_source" "$merge_target"
-                else
-                    printf "ERROR: move validation of file move from %s to %s failed." "$merge_source" "$merge_target"
-                    exit 1
-                fi
-            fi
+            [ -e "$merge_source" ] && move_file "$merge_source" "$merge_target" "$source_hash"
         fi
     else
-        rsync ${rsync_options[@]} "$merge_source" "$merge_target" 2>/dev/null
-        src_hash="$( sha512sum "$merge_source" | awk -e '{printf $1}' )"
-        dest_hash="$( sha512sum "$merge_target" | awk -e '{printf $1}' )"
-        if [ "$src_hash" == "$dest_hash" ]; then
-            rm -f "$merge_source"
-            printf "%s -> %s\n" "$merge_source" "$merge_target"
-        else
-            printf "ERROR: move validation of file move from %s to %s failed." "$merge_source" "$merge_target"
-            exit 1
-        fi
+        move_file "$merge_source" "$merge_target" "$source_hash"
     fi
 }
 
+
 process_dir() {
-    for target in *; do
-        if [ ! -L "$target" ]; then
-            [ -f "$target" ] && process_file
-            [ -d "$target" ] && dir_list+=("$work_path$target")
+    origin_dir="$1"
+    target_dir="$2"
+    common_dir="$3"
+    cd "${origin_dir}${common_dir}"
+    mkdir -p "${target_dir}${common_dir}"
+    for entry in *; do
+        if [ ! -L "$entry" ]; then
+            [ -f "$entry" ] && process_file "$origin_dir" "$target_dir" "$common_dir" "$entry"
+            [ -d "$entry" ] && directory_list+=("${common_dir}/${entry}")
         fi
     done
 }
 
-[ -z "$1" ] && usage "    No Source Directory given."
-[ -d "$1" ] || usage "    Source Directory not found."
-src_root="$(realpath "$1")"
-[ -z "$2" ] && usage "    No Destination Directory given."
-[ -d "$2" ] || usage "    Destination Directory not found."
-dest_root="$(realpath "$2")"
-
-printf "Merging contents of %s into %s\n" "$src_root" "$dest_root"
-
-GLOBIGNORE=".|.."
-file_list=()
-dir_list=()
-pushd "$src_root" >/dev/null
-work_path=""
-cd "${src_root}/"
-process_dir
-while [ 0 -ne ${#dir_list[@]} ] ; do
-    work_path="${dir_list[0]}/"
-    dir_list=("${dir_list[@]: 1}")
-    cd "${src_root}/${work_path}"
-    mkdir -p "${dest_root}/${work_path}"
-    process_dir
+while [ 0 -ne ${#directory_list[@]} ] ; do
+    current_path="${directory_list[0]}"
+    directory_list=("${directory_list[@]: 1}")
+    process_dir "$source_base" "$destination_base" "$current_path"
 done
-
 
 popd >/dev/null
-
-# printf "%s\n" "==FILES==" ${file_list[@]} "===DIRECTORIES===" ${dir_list[@]}
-while [ 0 -ne ${#dir_list[@]} ] ; do
-    printf "DIR: %s\n" "${dir_list[0]}"
-    dir_list=("${dir_list[@]: 1}")
-done
 
