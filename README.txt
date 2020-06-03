@@ -17,6 +17,10 @@ instructions, for which see the source of each.
 
 -   `dir-merger` Script to merge two directories, resolving conflicts
     with a simple suffix
+-   `git-full-clone` Script to clone a remote repository, collecting
+    all the branches and effectively making a complete mirror
+-   `git-update-clone` Script to keep a full-clone up-to-date with a
+    remote repository. Suitable for a chron job
 -   `push_it` Simple tool to initiate a `git commit` and `git push`
     to gitlab and github
 -   `save_it` Simple tool to do a `git commit` forcing a GPG
