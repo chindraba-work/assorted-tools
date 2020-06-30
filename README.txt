@@ -21,6 +21,8 @@ instructions, for which see the source of each.
     all the branches and effectively making a complete mirror
 -   `git-update-clone` Script to keep a full-clone up-to-date with a
     remote repository. Suitable for a chron job
+-   `lsync` Direct access to `rsync` with my optimized values for a
+    local copy process
 -   `push_it` Simple tool to initiate a `git commit` and `git push`
     to gitlab and github
 -   `save_it` Simple tool to do a `git commit` forcing a GPG

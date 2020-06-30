@@ -40,6 +40,10 @@ usage() {
     printf "\tlsync  Command to copy files locally using the rsync command.\n"
     printf "\t       Uses the rsync command with customized options.\n"
     printf "\t       Requires an existing source and a destination.\n\n"
+    printf "\t NOTE: The <source> must be a single, valid directory entry.\n"
+    printf "\t       Wildcards, shell expansion and globs are not valid. It\n"
+    printf "\t       must either be a single directory, which is copied intact,\n"
+    printf "\t       or a single file. Use of globs, etc. will have undefined results.\n\n"
     printf "\tUsage: %s <source> <dest>\n" 'lsync'
     exit 1
 }
@@ -47,4 +51,4 @@ usage() {
 [ -z "$2" ] && usage
 [ -e "$1" ] || usage
 
-rsync --info=PROGRESS2 -ahWHAX "$1" "$2"
+rsync --info=PROGRESS2 -ahhWHAX "$1" "$2"
