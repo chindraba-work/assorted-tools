@@ -152,9 +152,12 @@ while [ 0 -ne ${#directory_list[@]} ] ; do
     cleanup_list=( "${current_path}" "${cleanup_list[@]}" )
     process_dir "$source_base" "$destination_base" "$current_path"
 done
+printf "\n*************************************************************\n\tPerforming Cleanup ...\n"
 while [ 0 -ne ${#cleanup_list[@]} ]; do
+    printf "."
     current_path="${cleanup_list[0]}"
     cleanup_list=("${cleanup_list[@]: 1}")
     [ "$(ls -A "${source_base}${current_path}")" ] || rmdir "${source_base}${current_path}" 2>/dev/null
 done
+printf "\n*************************************************************\n"
 popd >/dev/null
