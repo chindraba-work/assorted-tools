@@ -21,6 +21,8 @@ instructions, for which see the source of each.
     all the branches and effectively making a complete mirror
 -   `git-update-clone` Script to keep a full-clone up-to-date with a
     remote repository. Suitable for a chron job
+-   `lmove` Modified version of `lsync` below to remove the source
+    after a successfull copy
 -   `lsync` Direct access to `rsync` with my optimized values for a
     local copy process
 -   `push_it` Simple tool to initiate a `git commit` and `git push`
