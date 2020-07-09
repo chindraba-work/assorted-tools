@@ -124,6 +124,9 @@ process_dir() {
         if [ ! -L "$entry" ]; then
             [ -f "$entry" ] && process_file "$origin_dir" "$target_dir" "$common_dir" "$entry"
             [ -d "$entry" ] && directory_list+=("${common_dir}/${entry}")
+        else
+printf "Removing link %s\n" "${entry}"
+            rm -f "$entry"
         fi
     done
 }
@@ -133,9 +136,11 @@ process_dir() {
 [ -z "$2" ] && usage "    No Destination Directory given."
 [ -d "$2" ] || usage "    Destination Directory not found."
 source_base="$(realpath "$1")"
+[ 'x/' == "x${source_base}" ] && printf "A merger from the system root is not allowed!!" && exit 1
 destination_base="$(realpath "$2")"
 GLOBIGNORE=".|.."
 directory_list=( "" )
+declare -a cleanup_list;
 pushd "$source_base" >/dev/null
 
 printf "Merging contents of %s into %s\n" "$source_base" "$destination_base"
@@ -143,8 +148,12 @@ printf "Merging contents of %s into %s\n" "$source_base" "$destination_base"
 while [ 0 -ne ${#directory_list[@]} ] ; do
     current_path="${directory_list[0]}"
     directory_list=("${directory_list[@]: 1}")
+    cleanup_list=( "${current_path}" "${cleanup_list[@]}" )
     process_dir "$source_base" "$destination_base" "$current_path"
 done
-
+while [ 0 -ne ${#cleanup_list[@]} ]; do
+    current_path="${cleanup_list[0]}"
+    cleanup_list=("${cleanup_list[@]: 1}")
+    [ "$(ls -A "${source_base}${current_path}")" ] || rmdir "${source_base}${current_path}" 2>/dev/null
+done
 popd >/dev/null
-
