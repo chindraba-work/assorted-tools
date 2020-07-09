@@ -71,13 +71,11 @@ move_file() {
     target_hash="$( sha512sum "$target_path" | awk -e '{printf $1}' )"
     if [ "$target_hash" == "$origin_hash" ]; then
         rm -f "$origin_path"
-        printf "%s -> %s\n" "$origin_path" "$target_path"
+        printf "\t\t-> %s\n" "$target_path"
     else
         printf "ERROR: move validation of file move from %s to %s failed." "$origin_path" "$target_path"
         exit 1
     fi
-
-
 }
 
 process_file() {
@@ -87,6 +85,7 @@ process_file() {
     target_file="$4"
     target_base="${target_file%%.merge-???}"
     merge_source="${source_dir}${active_dir}/${target_file}"
+    printf "\tChecking file '%s'\n" "${target_file}"
     source_hash="$( sha512sum "$merge_source" | awk -e '{printf $1}' )"
     destination_file="${destination_dir}${active_dir}/${target_base}"
     merge_target="$destination_file"
@@ -118,17 +117,19 @@ process_dir() {
     origin_dir="$1"
     target_dir="$2"
     common_dir="$3"
-    cd "${origin_dir}${common_dir}"
+    printf "Processing directory '%s'\n" "${common_dir}"
+    pushd "${origin_dir}${common_dir}" >/dev/null
     mkdir -p "${target_dir}${common_dir}"
     for entry in *; do
         if [ ! -L "$entry" ]; then
             [ -f "$entry" ] && process_file "$origin_dir" "$target_dir" "$common_dir" "$entry"
             [ -d "$entry" ] && directory_list+=("${common_dir}/${entry}")
         else
-printf "Removing link %s\n" "${entry}"
+            printf "\tRemoving link %s\n" "${entry}"
             rm -f "$entry"
         fi
     done
+    popd >/dev/null
 }
 
 [ -z "$1" ] && usage "    No Source Directory given."
