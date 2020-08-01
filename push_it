@@ -40,5 +40,6 @@
 # error can be anticipated.
 
 git commit --date="$(date --utc +%Y-%m-%dT%H:%M:%S%z)" --file=commit_msg.md --signoff --gpg-sign "$@"
-git push gitlab
-git push github
+git remote -v | grep -v http | grep \(push | cut -f 1 | while read -r remote_name; do
+    git push --tags "${remote_name}" HEAD
+done
