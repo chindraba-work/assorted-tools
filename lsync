@@ -51,10 +51,17 @@ usage() {
 [ -z "$2" ] && usage
 [ -e "$1" ] || usage
 printf "\tCopying '%s' to '%s' ...\n" "$1" "$2"
-rsync --info=PROGRESS2 -ahhWHAX "$1" "$2"
+rsync --info=PROGRESS2 -ahhWHAXx "$1" "$2"
 src_size="$(stat --format=%s "$1")"
 dest_size="$(stat --format=%s "$1")"
 (( src_size == dest_size )) && \
     result_msg="Copy of %s to %s successfull." || \
     result_msg="Sizes of %s here and in %s do not match.\n\t\tCopy was NOT successfull."
 printf "\t\t$result_msg\n" "$1" "$2"
+
+# function cpr() {
+#   rsync --archive -hh --hard-links --partial --info=stats1 --info=progress2 --modify-window=1 "$@"
+# }
+# function mvr() {
+#   rsync --archive -hh --hard-links --partial --info=stats1 --info=progress2 --modify-window=1 --remove-source-files "$@"
+# }
